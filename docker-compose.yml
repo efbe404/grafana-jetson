@@ -1,0 +1,55 @@
+version: '3.5'
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana.ini:/etc/grafana/grafana.ini
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+  jetson_collector:
+    build:
+      context: ./jetson_collector
+      dockerfile: jetson_collector.Dockerfile
+    container_name: jetson_collector
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /run/jtop.sock:/run/jtop.sock
+    environment:
+      - COLLECT_TIME=5
+      - COLLECTOR_PORT=3030
+
+
+volumes:
+  grafana-storage:
