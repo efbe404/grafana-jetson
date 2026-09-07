@@ -1,73 +1,73 @@
 # Grafana Jetson Monitor
 
-Stack Docker untuk memantau NVIDIA Jetson dan container Docker melalui Grafana, Prometheus, cAdvisor, dan collector berbasis `jetson-stats`.
+Docker stack for monitoring NVIDIA Jetson hardware and Docker containers with Grafana, Prometheus, cAdvisor, and a `jetson-stats` collector.
 
-## Perhatian keamanan
+## Security Notes
 
-- `jetson_collector/collector.py` mengekspos nomor seri Jetson serta informasi perangkat keras melalui metrik `jetson_info_hardware_info`.
-- Grafana mengaktifkan akses anonim (`[auth.anonymous] enabled = true`) dan seluruh layanan memakai host network. Jangan ekspos port ke internet; batasi dengan firewall atau letakkan di belakang reverse proxy yang memakai autentikasi.
-- Tidak ditemukan password, API key, token, atau file `.env` aktif dalam repositori. Nilai sensitif pada `grafana.ini` hanya contoh yang dikomentari.
-- cAdvisor berjalan dalam mode `privileged` dan membaca filesystem host untuk mengumpulkan metrik container. Jalankan hanya pada host yang tepercaya.
+- `jetson_collector/collector.py` exposes the Jetson serial number and hardware details through the `jetson_info_hardware_info` metric.
+- Grafana has anonymous access enabled (`[auth.anonymous] enabled = true`) and every service uses host networking. Do not expose these ports to the internet; restrict access with a firewall or place the stack behind an authenticated reverse proxy.
+- No active passwords, API keys, tokens, or `.env` files are stored in this repository. Sensitive values in `grafana.ini` are commented examples only.
+- cAdvisor runs in privileged mode and reads the host filesystem to collect container metrics. Run it only on trusted hosts.
 
-## Prasyarat
+## Prerequisites
 
-- NVIDIA Jetson dengan JetPack dan layanan `jtop` tersedia.
-- Docker Engine dan Docker Compose plugin pada Jetson.
-- Port `3000`, `3030`, `8080`, dan `9090` belum dipakai.
+- An NVIDIA Jetson device with JetPack and the `jtop` service available.
+- Docker Engine and the Docker Compose plugin installed on the Jetson device.
+- Ports `3000`, `3030`, `8080`, and `9090` available on the host.
 
-## Instalasi
+## Installation
 
 ```bash
-git clone <URL_REPOSITORI> grafana-jetson
+git clone <REPOSITORY_URL> grafana-jetson
 cd grafana-jetson
 docker compose up -d --build
 ```
 
-Pastikan semua container berjalan:
+Verify that all containers are running:
 
 ```bash
 docker compose ps
 ```
 
-## Akses layanan
+## Service URLs
 
-| Layanan | URL |
+| Service | URL |
 | --- | --- |
-| Grafana | `http://<IP-JETSON>:3000` |
-| Prometheus | `http://<IP-JETSON>:9090` |
-| cAdvisor | `http://<IP-JETSON>:8080` |
-| Jetson collector | `http://<IP-JETSON>:3030/metrics` |
+| Grafana | `http://<JETSON_IP>:3000` |
+| Prometheus | `http://<JETSON_IP>:9090` |
+| cAdvisor | `http://<JETSON_IP>:8080` |
+| Jetson collector | `http://<JETSON_IP>:3030/metrics` |
 
-Grafana dapat dibuka tanpa login karena akses anonim diaktifkan. Jika login admin diperlukan, kredensial default Grafana pada instalasi baru adalah `admin` / `admin`; segera ubah dan nonaktifkan akses anonim sebelum dipakai di jaringan bersama.
+Grafana is accessible without login because anonymous access is enabled. If an administrator login is needed, a fresh Grafana installation uses the default credentials `admin` / `admin`; change them immediately and disable anonymous access before using the stack on a shared network.
 
-## Konfigurasi Grafana
+## Grafana Setup
 
-1. Buka Grafana, lalu tambahkan datasource **Prometheus** dengan URL `http://localhost:9090`.
-2. Simpan datasource dan catat UID-nya dari URL halaman datasource.
-3. Impor `templates/nvidia-jetson-jtop.json` dan `templates/jetson-cadvisor.json` melalui **Dashboards > New > Import**.
-4. Pada setiap dashboard, pilih datasource Prometheus yang baru dibuat. Bila kueri tidak memuat data, ganti seluruh nilai `cfx7ds3p9q03kb` di berkas JSON dengan UID datasource Anda, lalu impor ulang.
+1. Open Grafana and add a **Prometheus** data source with URL `http://localhost:9090`.
+2. Save the data source and note its UID from the data source page URL.
+3. Import `templates/nvidia-jetson-jtop.json` and `templates/jetson-cadvisor.json` through **Dashboards > New > Import**.
+4. Select the new Prometheus data source in each dashboard. If queries do not return data, replace every `cfx7ds3p9q03kb` value in the JSON files with the new data source UID, then import them again.
 
-Dashboard Jetson menampilkan informasi board, CPU, GPU, RAM, disk, fan, suhu, uptime, dan konsumsi daya. Dashboard cAdvisor menampilkan CPU, memori, jaringan, disk I/O, dan status container Docker.
+The Jetson dashboard shows board information, CPU, GPU, RAM, disk, fan, temperature, uptime, and power usage. The cAdvisor dashboard shows Docker CPU, memory, network, disk I/O, and container status metrics.
 
-## Operasional
+## Operations
 
 ```bash
-# Lihat log seluruh layanan
+# Follow logs from all services
 docker compose logs -f
 
-# Hentikan stack tanpa menghapus data Prometheus
+# Stop the stack without deleting Prometheus data
 docker compose down
 
-# Hentikan dan hapus volume Grafana serta data Prometheus
+# Stop the stack and delete Grafana volumes and Prometheus data
 docker compose down -v
 rm -rf prometheus-data
 ```
 
-Data Prometheus tersimpan pada direktori `prometheus-data/`, yang tidak dilacak Git. Data Grafana tersimpan pada volume Docker `grafana-storage`.
+Prometheus data is stored in `prometheus-data/`, which is ignored by Git. Grafana data is stored in the Docker volume `grafana-storage`.
 
 ## Troubleshooting
 
-- `jetson_collector` gagal start: pastikan socket `/run/jtop.sock` ada dan `jtop` berjalan pada host Jetson.
-- Endpoint `3030/metrics` tidak merespons: periksa `docker compose logs jetson_collector`.
-- Prometheus tidak menampilkan target `UP`: buka `http://<IP-JETSON>:9090/targets` dan periksa port collector atau cAdvisor.
-- Dashboard kosong: pastikan datasource Prometheus mengarah ke `http://localhost:9090` dan UID datasource pada dashboard sudah sesuai.
+- `jetson_collector` fails to start: confirm that `/run/jtop.sock` exists and `jtop` is running on the Jetson host.
+- The `3030/metrics` endpoint does not respond: check `docker compose logs jetson_collector`.
+- Prometheus targets are not `UP`: open `http://<JETSON_IP>:9090/targets` and check the collector and cAdvisor ports.
+- A dashboard is empty: confirm that the Prometheus data source URL is `http://localhost:9090` and its UID matches the dashboard JSON.
